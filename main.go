@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -20,15 +21,19 @@ type job struct {
 var baseUrl string = "https://kr.indeed.com/jobs?q=python"
 
 func main() {
+	var allJobs []job
 	totalPages := GetPageCnt()
 	fmt.Println(totalPages)
 
 	for i := 0; i < totalPages; i++ {
-		getPage(i)
+		jobs := getPage(i)
+		allJobs = append(allJobs, jobs...) // append all the contents of jobs
 	}
+	fmt.Println(allJobs)
 }
 
-func getPage(page int) {
+func getPage(page int) []job {
+	var jobs []job
 	pageUrl := baseUrl + "&start=" + strconv.Itoa(page*10)
 	fmt.Println("Requesting " + pageUrl)
 	res, err := http.Get(pageUrl)
@@ -42,11 +47,19 @@ func getPage(page int) {
 
 	searchCards := doc.Find(".jobsearch-SerpJobCard")
 	searchCards.Each(func(i int, card *goquery.Selection) {
-		id, _ := card.Attr("data-jk")
-		title := card.Find(".title>a").Text()
-		location := card.Find(".sjcl").Text()
-		fmt.Println(id, title, location)
+		extractedJob := extractJob(card)
+		jobs = append(jobs, extractedJob)
 	})
+	return jobs
+}
+
+func extractJob(card *goquery.Selection) job {
+	id, _ := card.Attr("data-jk")
+	title := cleanString(card.Find(".title>a").Text())
+	location := cleanString(card.Find(".sjcl").Text())
+	salary := cleanString(card.Find(".salaryText").Text())
+	summary := cleanString(card.Find(".summary").Text())
+	return job{id, title, location, salary, summary}
 }
 
 // How many pages are there?
@@ -77,4 +90,8 @@ func checkStatus(res *http.Response) {
 	if res.StatusCode != 200 {
 		log.Fatalln("Request failed with status: ", res.StatusCode)
 	}
+}
+
+func cleanString(str string) string {
+	return strings.Join(strings.Fields(strings.TrimSpace(str)), " ")
 }
