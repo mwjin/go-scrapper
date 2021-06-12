@@ -42,7 +42,7 @@ func writeJobs(jobs []job) {
 	w := csv.NewWriter(file)
 	defer w.Flush()
 
-	header := []string{"ID", "Title", "Location", "Salary", "Summary"}
+	header := []string{"URL", "Title", "Location", "Salary", "Summary"}
 	err = w.Write(header)
 	checkErr(err)
 
@@ -56,8 +56,9 @@ func writeJobs(jobs []job) {
 }
 
 func makeJobSlice(oneJob job) []string {
+	jobBaseUrl := "https://kr.indeed.com/jobs?q=python&l&vjk="
 	return []string{
-		oneJob.id,
+		jobBaseUrl + oneJob.id,
 		oneJob.title,
 		oneJob.location,
 		oneJob.salary,
