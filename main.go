@@ -51,18 +51,27 @@ func writeJobs(jobs []job) {
 	err = w.Write(header)
 	checkErr(err)
 
+	c := make(chan []string)
 	for _, oneJob := range jobs {
-		jobSlice := makeJobSlice(oneJob)
-		if err := w.Write(jobSlice); err != nil {
-			checkErr(err)
-			log.Fatalln("Error write a job to csv: ", err)
-		}
+		go makeJobSlice(oneJob, c)
+	}
+
+	var jobSlices [][]string
+
+	for i := 0; i < len(jobs); i++ {
+		jobSlice := <-c
+		jobSlices = append(jobSlices, jobSlice)
+	}
+
+	if err := w.WriteAll(jobSlices); err != nil {
+		checkErr(err)
+		log.Fatalln("Error write a job to csv: ", err)
 	}
 }
 
-func makeJobSlice(oneJob job) []string {
+func makeJobSlice(oneJob job, c chan<- []string) {
 	jobBaseUrl := "https://kr.indeed.com/jobs?q=python&l&vjk="
-	return []string{
+	c <- []string{
 		jobBaseUrl + oneJob.id,
 		oneJob.title,
 		oneJob.location,
