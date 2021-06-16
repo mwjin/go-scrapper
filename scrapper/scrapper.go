@@ -1,4 +1,4 @@
-package main
+package scrapper
 
 import (
 	"encoding/csv"
@@ -20,16 +20,15 @@ type job struct {
 	summary  string
 }
 
-var baseUrl string = "https://kr.indeed.com/jobs?q=python"
-
-func main() {
+func Scrape(term string) {
 	var allJobs []job
 	jobsC := make(chan []job)
-	totalPages := GetPageCnt()
+	baseUrl := "https://kr.indeed.com/jobs?q=" + term
+	totalPages := GetPageCnt(baseUrl)
 	fmt.Println(totalPages)
 
 	for i := 0; i < totalPages; i++ {
-		go getPage(i, jobsC)
+		go getPage(baseUrl, i, jobsC)
 	}
 
 	for i := 0; i < totalPages; i++ {
@@ -42,7 +41,7 @@ func main() {
 }
 
 // How many pages are there?
-func GetPageCnt() int {
+func GetPageCnt(baseUrl string) int {
 	pageCnt := 0
 	res, err := http.Get(baseUrl)
 	checkErr(err)
@@ -59,7 +58,7 @@ func GetPageCnt() int {
 	return pageCnt
 }
 
-func getPage(page int, jobsC chan<- []job) {
+func getPage(baseUrl string, page int, jobsC chan<- []job) {
 	var jobs []job
 	jobC := make(chan job)
 	pageUrl := baseUrl + "&start=" + strconv.Itoa(page*10)
