@@ -41,42 +41,22 @@ func main() {
 	fmt.Printf("Extract %d jobs.\n", len(allJobs))
 }
 
-func writeJobs(jobs []job) {
-	file, err := os.Create("jobs.csv")
+// How many pages are there?
+func GetPageCnt() int {
+	pageCnt := 0
+	res, err := http.Get(baseUrl)
 	checkErr(err)
-	w := csv.NewWriter(file)
-	defer w.Flush()
+	checkStatus(res)
 
-	header := []string{"URL", "Title", "Location", "Salary", "Summary"}
-	err = w.Write(header)
+	defer res.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(res.Body)
 	checkErr(err)
 
-	c := make(chan []string)
-	for _, oneJob := range jobs {
-		go makeJobSlice(oneJob, c)
-	}
-
-	var jobSlices [][]string
-
-	for i := 0; i < len(jobs); i++ {
-		jobSlice := <-c
-		jobSlices = append(jobSlices, jobSlice)
-	}
-
-	if err := w.WriteAll(jobSlices); err != nil {
-		checkErr(err)
-		log.Fatalln("Error write a job to csv: ", err)
-	}
-}
-
-func makeJobSlice(oneJob job, c chan<- []string) {
-	jobBaseUrl := "https://kr.indeed.com/jobs?q=python&l&vjk="
-	c <- []string{
-		jobBaseUrl + oneJob.id,
-		oneJob.title,
-		oneJob.location,
-		oneJob.salary,
-		oneJob.summary}
+	doc.Find(".pagination").Each(func(i int, s *goquery.Selection) {
+		pageCnt = s.Find("a").Length()
+	})
+	return pageCnt
 }
 
 func getPage(page int, jobsC chan<- []job) {
@@ -114,22 +94,42 @@ func extractJob(card *goquery.Selection, c chan<- job) {
 	c <- job{id, title, location, salary, summary}
 }
 
-// How many pages are there?
-func GetPageCnt() int {
-	pageCnt := 0
-	res, err := http.Get(baseUrl)
+func writeJobs(jobs []job) {
+	file, err := os.Create("jobs.csv")
 	checkErr(err)
-	checkStatus(res)
+	w := csv.NewWriter(file)
+	defer w.Flush()
 
-	defer res.Body.Close()
-
-	doc, err := goquery.NewDocumentFromReader(res.Body)
+	header := []string{"URL", "Title", "Location", "Salary", "Summary"}
+	err = w.Write(header)
 	checkErr(err)
 
-	doc.Find(".pagination").Each(func(i int, s *goquery.Selection) {
-		pageCnt = s.Find("a").Length()
-	})
-	return pageCnt
+	c := make(chan []string)
+	for _, oneJob := range jobs {
+		go makeJobSlice(oneJob, c)
+	}
+
+	var jobSlices [][]string
+
+	for i := 0; i < len(jobs); i++ {
+		jobSlice := <-c
+		jobSlices = append(jobSlices, jobSlice)
+	}
+
+	if err := w.WriteAll(jobSlices); err != nil {
+		checkErr(err)
+		log.Fatalln("Error write a job to csv: ", err)
+	}
+}
+
+func makeJobSlice(oneJob job, c chan<- []string) {
+	jobBaseUrl := "https://kr.indeed.com/jobs?q=python&l&vjk="
+	c <- []string{
+		jobBaseUrl + oneJob.id,
+		oneJob.title,
+		oneJob.location,
+		oneJob.salary,
+		oneJob.summary}
 }
 
 func checkErr(err error) {
